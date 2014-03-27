@@ -122,7 +122,7 @@ handle_call(Request, _From, State) ->
 -spec handle_cast(stop | #apns_msg{}, state()) -> {noreply, state()} | {stop, normal | {error, term()}, state()}.
 handle_cast(Msg, State=#state{out_socket=undefined,connection=Connection}) ->
   try
-    error_logger:info_msg("Reconnecting to APNS...~n"),
+    %%error_logger:info_msg("Reconnecting to APNS...~n"),
     case open_out(Connection) of
       {ok, Socket} -> handle_cast(Msg, State#state{out_socket=Socket});
       {error, Reason} -> {stop, Reason}
@@ -199,20 +199,20 @@ handle_info({ssl, SslSocket, Data}, State = #state{in_socket  = SslSocket,
 
 handle_info({ssl_closed, SslSocket}, State = #state{in_socket = SslSocket,
                                                     connection= Connection}) ->
-  error_logger:info_msg("Feedback server disconnected. Waiting ~p millis to connect again...~n",
-                        [Connection#apns_connection.feedback_timeout]),
+  %%error_logger:info_msg("Feedback server disconnected. Waiting ~p millis to connect again...~n",
+                        %%[Connection#apns_connection.feedback_timeout]),
   _Timer = erlang:send_after(Connection#apns_connection.feedback_timeout, self(), reconnect),
   {noreply, State#state{in_socket = undefined}};
 
 handle_info(reconnect, State = #state{connection = Connection}) ->
-  error_logger:info_msg("Reconnecting the Feedback server...~n"),
+  %%error_logger:info_msg("Reconnecting the Feedback server...~n"),
   case open_feedback(Connection) of
     {ok, InSocket} -> {noreply, State#state{in_socket = InSocket}};
     {error, Reason} -> {stop, {in_closed, Reason}, State}
   end;
 
 handle_info({ssl_closed, SslSocket}, State = #state{out_socket = SslSocket}) ->
-  error_logger:info_msg("APNS disconnected~n"),
+  %%error_logger:info_msg("APNS disconnected~n"),
   {noreply, State#state{out_socket=undefined}};
 
 handle_info(Request, State) ->
@@ -288,8 +288,8 @@ send_payload(Socket, MsgId, Expiry, BinToken, Payload) ->
                 BinToken/binary,
                 PayloadLength:16/big,
                 BinPayload/binary>>],
-    error_logger:info_msg("Sending msg ~p (expires on ~p)~n",
-                         [MsgId, Expiry]),
+    %%error_logger:info_msg("Sending msg ~p (expires on ~p)~n",
+                         %%[MsgId, Expiry]),
     ssl:send(Socket, Packet).
 
 hexstr_to_bin(S) ->
