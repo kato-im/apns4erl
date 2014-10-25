@@ -28,9 +28,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% @doc  Sends a message to apple through the connection
--spec send_message(apns:conn_id(), #apns_msg{}) -> ok.
+-spec send_message(apns:conn_id(), #apns_msg{}) -> ok | {error, term()}.
 send_message(ConnId, Msg) ->
-  gen_server:cast(ConnId, Msg).
+  gen_server:call(ConnId, Msg).
 
 %% @doc  Stops the connection
 -spec stop(apns:conn_id()) -> ok.
@@ -113,8 +113,19 @@ open_feedback(Connection) ->
     {error, Reason} -> {error, Reason}
   end.
 
+-spec handle_call(_, reference(), state()) -> {reply, ok, state()} | {stop, _, _, state()}.
+handle_call(Msg, _From, State) when is_record(Msg, apns_msg) ->
+  Socket = State#state.out_socket,
+  Payload = build_payload(Msg),
+  BinToken = hexstr_to_bin(Msg#apns_msg.device_token),
+  case send_payload(Socket, Msg#apns_msg.id, Msg#apns_msg.expiry, BinToken, Payload) of
+    ok ->
+      {reply, ok, State};
+    {error, Reason} ->
+      {stop, {error, Reason}, {error, Reason}, State}
+  end;
+
 %% @hidden
--spec handle_call(X, reference(), state()) -> {stop, {unknown_request, X}, {unknown_request, X}, state()}.
 handle_call(Request, _From, State) ->
   {stop, {unknown_request, Request}, {unknown_request, Request}, State}.
 
@@ -129,17 +140,6 @@ handle_cast(Msg, State=#state{out_socket=undefined,connection=Connection}) ->
     end
   catch
     _:{error, Reason2} -> {stop, Reason2}
-  end;
-
-handle_cast(Msg, State) when is_record(Msg, apns_msg) ->
-  Socket = State#state.out_socket,
-  Payload = build_payload(Msg),
-  BinToken = hexstr_to_bin(Msg#apns_msg.device_token),
-  case send_payload(Socket, Msg#apns_msg.id, Msg#apns_msg.expiry, BinToken, Payload) of
-    ok ->
-      {noreply, State};
-    {error, Reason} ->
-      {stop, {error, Reason}, State}
   end;
 
 handle_cast(stop, State) ->
