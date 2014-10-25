@@ -113,7 +113,19 @@ open_feedback(Connection) ->
     {error, Reason} -> {error, Reason}
   end.
 
--spec handle_call(_, reference(), state()) -> {reply, ok, state()} | {stop, _, _, state()}.
+%% @hidden
+-spec handle_call(#apns_msg{}, reference(), state()) -> {reply, ok, state()} | {stop, _, _, state()}.
+handle_call(Msg, From, State=#state{out_socket=undefined,connection=Connection}) ->
+  try
+    %%error_logger:info_msg("Reconnecting to APNS...~n"),
+    case open_out(Connection) of
+      {ok, Socket} -> handle_call(Msg, From, State#state{out_socket=Socket});
+      {error, Reason} -> {stop, {error, Reason}, {error, Reason}, State}
+    end
+  catch
+    _:{error, Reason2} -> {stop, {error, Reason2}, {error, Reason2}, State}
+  end;
+
 handle_call(Msg, _From, State) when is_record(Msg, apns_msg) ->
   Socket = State#state.out_socket,
   Payload = build_payload(Msg),
@@ -125,23 +137,11 @@ handle_call(Msg, _From, State) when is_record(Msg, apns_msg) ->
       {stop, {error, Reason}, {error, Reason}, State}
   end;
 
-%% @hidden
 handle_call(Request, _From, State) ->
   {stop, {unknown_request, Request}, {unknown_request, Request}, State}.
 
 %% @hidden
--spec handle_cast(stop | #apns_msg{}, state()) -> {noreply, state()} | {stop, normal | {error, term()}, state()}.
-handle_cast(Msg, State=#state{out_socket=undefined,connection=Connection}) ->
-  try
-    %%error_logger:info_msg("Reconnecting to APNS...~n"),
-    case open_out(Connection) of
-      {ok, Socket} -> handle_cast(Msg, State#state{out_socket=Socket});
-      {error, Reason} -> {stop, Reason}
-    end
-  catch
-    _:{error, Reason2} -> {stop, Reason2}
-  end;
-
+-spec handle_cast(stop, state()) -> {stop, _, state()}.
 handle_cast(stop, State) ->
   {stop, normal, State}.
 
